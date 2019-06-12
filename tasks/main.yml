@@ -1,0 +1,39 @@
+---
+# tasks file for luks-volume
+  - name: Install luks package
+    yum:
+      name: cryptsetup-luks
+      state: present
+
+  - name: format the volume /dev/sdb1, ENSURE your volume is /dev/sdb1
+    shell: printf "lukskywalker" | cryptsetup luksFormat /dev/sdb1 -
+
+  - name: Open the volume
+    shell: echo lukskywalker | cryptsetup luksOpen /dev/sdb1 sdb1_crypted 
+
+  - name: Create a ext4 filesystem on /dev/sdb1 and check disk blocks
+    filesystem:
+      fstype: ext4
+      dev: /dev/mapper/sdb1_crypted
+
+  - name: generate a key /root/lukskey 
+    shell: dd if=/dev/random bs=32 count=1 of=/root/lukskey
+
+  - name: add key to be able to open luks
+    shell: echo lukskywalker | cryptsetup luksAddKey /dev/sdb1 /root/lukskey 
+
+  - name: get UUID disk volume
+    shell: cryptsetup luksDump /dev/sdb1 |grep UUID|cut -f2
+    register: UUID
+
+  - file:
+      path: /etc/crypttab
+      state: touch
+  - name: Fill /etc/crypttab
+    lineinfile:
+      path: /etc/crypttab
+      line: sdb1_crypted	UUID={{ UUID.stdout }} /root/lukskey luks
+  - name: ensure entry in /etc/fstab
+    lineinfile:
+      path: /etc/fstab
+      line: /dev/mapper/sdb1_crypted /local00   ext4  defaults  0  0

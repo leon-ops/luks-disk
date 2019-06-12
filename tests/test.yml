@@ -1,0 +1,5 @@
+---
+- hosts: luks-vm
+  remote_user: root
+  roles:
+    - luks-volume
