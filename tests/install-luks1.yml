@@ -1,8 +1,7 @@
 ---
-- hosts: luks-vm
+- hosts: luks1-vm
   vars:
     disk: sdb1
   remote_user: root
   roles:
     - luks-volume
-    - drbd

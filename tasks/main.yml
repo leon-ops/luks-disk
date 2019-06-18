@@ -5,35 +5,44 @@
       name: cryptsetup-luks
       state: present
 
-  - name: format the volume /dev/sdb1, ENSURE your volume is /dev/sdb1
-    shell: printf "lukskywalker" | cryptsetup luksFormat /dev/sdb1 -
+  - name: format the volume  ENSURE your volume is /dev/{{ disk }}
+    shell: printf "lukskywalker" | cryptsetup luksFormat /dev/{{ disk }} -
 
   - name: Open the volume
-    shell: echo lukskywalker | cryptsetup luksOpen /dev/sdb1 sdb1_crypted 
+    shell: echo lukskywalker | cryptsetup luksOpen /dev/{{ disk }} {{ disk }}_crypted 
 
-  - name: Create a ext4 filesystem on /dev/sdb1 and check disk blocks
+  - name: Create a ext4 filesystem on /dev/{{ disk }} and check disk blocks
     filesystem:
       fstype: ext4
-      dev: /dev/mapper/sdb1_crypted
+      dev: /dev/mapper/{{ disk }}_crypted
 
   - name: generate a key /root/lukskey 
     shell: dd if=/dev/random bs=32 count=1 of=/root/lukskey
 
   - name: add key to be able to open luks
-    shell: echo lukskywalker | cryptsetup luksAddKey /dev/sdb1 /root/lukskey 
+    shell: echo lukskywalker | cryptsetup luksAddKey /dev/{{ disk }} /root/lukskey 
 
   - name: get UUID disk volume
-    shell: cryptsetup luksDump /dev/sdb1 |grep UUID|cut -f2
+    shell: cryptsetup luksDump /dev/{{ disk }} |grep UUID|cut -f2
     register: UUID
 
+  - file:
+      path: /etc/crypttab
+      state: absent 
   - file:
       path: /etc/crypttab
       state: touch
   - name: Fill /etc/crypttab
     lineinfile:
       path: /etc/crypttab
-      line: sdb1_crypted	UUID={{ UUID.stdout }} /root/lukskey luks
+      line: "{{ disk }}_crypted UUID={{ UUID.stdout }} /root/lukskey luks"
   - name: ensure entry in /etc/fstab
     lineinfile:
       path: /etc/fstab
-      line: /dev/mapper/sdb1_crypted /local00   ext4  defaults  0  0
+      line: /dev/mapper/{{ disk }}_crypted /local00   ext4  defaults  0  0
+
+  - name: create /local00 directory if it does not exist
+    file:
+      path: /local00
+      state: directory
+      mode: '0755'
